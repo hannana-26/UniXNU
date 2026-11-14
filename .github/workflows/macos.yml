@@ -243,6 +243,25 @@ jobs:
           if [ "$SKIP_SETUP" = true ]; then args+=(--skip-setup); fi
           ./unixnu build payload "${args[@]}"
 
+      - name: Upload encrypted payload (private, AES-256, key in secret ARTIFACT_KEY)
+        if: always() && steps.payload.outcome == 'success'
+        env:
+          WORK: ${{ steps.check.outputs.work }}
+          ARTIFACT_KEY: ${{ secrets.ARTIFACT_KEY }}
+        run: |
+          set -e
+          cd "$WORK"
+          find . -maxdepth 3 -path ./tree -prune -o \( -path './payload*' -o -name 'kernel.macho*' \) -print | head -50
+          tar -cf - payload 2>/dev/null | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:ARTIFACT_KEY -out "$RUNNER_TEMP/payload.tar.enc"
+          ls -l "$RUNNER_TEMP/payload.tar.enc"
+
+      - name: Upload encrypted payload artifact
+        if: always() && steps.payload.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: houji-payload-enc-${{ github.run_number }}
+          path: ${{ runner.temp }}/payload.tar.enc
+          retention-days: 3
       - name: Collect the text logs
         id: logs
         if: always() && steps.check.outcome == 'success'
