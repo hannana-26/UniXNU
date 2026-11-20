@@ -215,6 +215,11 @@ def hardware_properties(entry, handles, base=0):
         if key in STRINGS:
             entry.strings(key)
             properties.append((key, raw))
+        elif key in ('phandle', 'linux,phandle'):
+            # XNU's AddPHandle/IODTFindInterruptParent look up AAPL,phandle only; the FDT spelling left every
+            # interrupt-parent NULL and IODTGetICellCounts() data-aborted (official marble-milacy fix).
+            if not any(name == 'AAPL,phandle' for name, _ in properties):
+                properties.append(('AAPL,phandle', struct.pack('<I', entry.scalar(key))))
         elif key in U32:
             properties.append((key, struct.pack('<I', entry.scalar(key))))
         elif key in U64:
